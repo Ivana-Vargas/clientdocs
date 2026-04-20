@@ -1,6 +1,7 @@
 import type { ReactNode } from "react"
 
 import { cookies } from "next/headers"
+import Link from "next/link"
 import { redirect } from "next/navigation"
 
 import { LanguageSwitcher } from "@app/shared/ui/language-switcher"
@@ -33,7 +34,9 @@ export default async function PrivateLayout({ children }: PrivateLayoutProps) {
   return (
     <>
       <header className="session-bar">
-        <strong>{dictionary.common.brand}</strong>
+        <Link href="/dashboard" className="session-bar__brand">
+          {dictionary.common.brand}
+        </Link>
         <div className="session-bar__actions">
           <LanguageSwitcher
             locale={locale}
