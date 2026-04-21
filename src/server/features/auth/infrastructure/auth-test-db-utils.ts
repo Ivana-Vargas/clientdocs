@@ -33,6 +33,8 @@ export async function resetAuthDatabaseForTests() {
   const managerPassword = process.env.MANAGER_PASSWORD?.trim() ?? "manager-password"
 
   await prismaClient.authSession.deleteMany()
+  await prismaClient.clientDocument.deleteMany()
+  await prismaClient.documentCategory.deleteMany()
   await prismaClient.payment.deleteMany()
   await prismaClient.client.deleteMany()
   await upsertTestUser({

@@ -25,6 +25,11 @@ enum PaymentMethod {
   OTHER
 }
 
+enum DocumentStorageProvider {
+  LOCAL
+  S3
+}
+
 model User {
   id              String        @id @default(uuid()) @db.Uuid
   publicId        String        @unique @default(cuid()) @map("public_id")
@@ -38,6 +43,8 @@ model User {
   sessions        AuthSession[]
   createdClients  Client[]      @relation("ClientCreatedBy")
   createdPayments Payment[]     @relation("PaymentCreatedBy")
+  createdDocumentCategories DocumentCategory[] @relation("DocumentCategoryCreatedBy")
+  uploadedDocuments ClientDocument[] @relation("ClientDocumentUploadedBy")
 
   @@map("users")
 }
@@ -74,6 +81,7 @@ model Client {
   createdByUserId String?      @map("created_by_user_id") @db.Uuid
   createdByUser   User?        @relation("ClientCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
   payments        Payment[]
+  documents       ClientDocument[]
   createdAt       DateTime     @default(now()) @map("created_at")
   updatedAt       DateTime     @updatedAt @map("updated_at")
 
@@ -101,4 +109,48 @@ model Payment {
   @@index([paidAt], map: "idx_payments_paid_at")
   @@index([createdByUserId], map: "idx_payments_created_by_user_id")
   @@map("payments")
+}
+
+model DocumentCategory {
+  id              String    @id @default(uuid()) @db.Uuid
+  publicId        String    @unique @default(cuid()) @map("public_id")
+  name            String
+  slug            String    @unique
+  isActive        Boolean   @default(true) @map("is_active")
+  createdByUserId String?   @map("created_by_user_id") @db.Uuid
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  createdByUser   User?     @relation("DocumentCategoryCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  documents       ClientDocument[]
+
+  @@index([isActive], map: "idx_document_categories_is_active")
+  @@index([createdByUserId], map: "idx_document_categories_created_by_user_id")
+  @@map("document_categories")
+}
+
+model ClientDocument {
+  id                  String                  @id @default(uuid()) @db.Uuid
+  publicId            String                  @unique @default(cuid()) @map("public_id")
+  clientId            String                  @map("client_id") @db.Uuid
+  categoryId          String                  @map("category_id") @db.Uuid
+  originalFileName    String                  @map("original_file_name")
+  storageProvider     DocumentStorageProvider @default(LOCAL) @map("storage_provider")
+  storageKey          String                  @unique @map("storage_key")
+  mimeType            String                  @map("mime_type")
+  fileSizeBytes       Int                     @map("file_size_bytes")
+  checksumSha256      String                  @map("checksum_sha256")
+  version             Int                     @default(1)
+  isCurrent           Boolean                 @default(true) @map("is_current")
+  uploadedByUserId    String?                 @map("uploaded_by_user_id") @db.Uuid
+  uploadedAt          DateTime                @default(now()) @map("uploaded_at")
+  client              Client                  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  category            DocumentCategory        @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  uploadedByUser      User?                   @relation("ClientDocumentUploadedBy", fields: [uploadedByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([clientId, categoryId, version], map: "uq_client_documents_client_category_version")
+  @@index([clientId], map: "idx_client_documents_client_id")
+  @@index([categoryId], map: "idx_client_documents_category_id")
+  @@index([isCurrent], map: "idx_client_documents_is_current")
+  @@index([uploadedByUserId], map: "idx_client_documents_uploaded_by_user_id")
+  @@map("client_documents")
 }

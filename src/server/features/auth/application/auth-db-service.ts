@@ -194,3 +194,16 @@ export function getUserFromAccessToken(accessToken: string) {
     return null
   }
 }
+
+export async function getUserRoleByIdFromDb(userId: string): Promise<AuthRole | null> {
+  const user = await prismaClient.user.findUnique({
+    where: { id: userId },
+    select: { role: true, isActive: true },
+  })
+
+  if (!user || !user.isActive) {
+    return null
+  }
+
+  return normalizeRole(user.role)
+}

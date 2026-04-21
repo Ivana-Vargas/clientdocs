@@ -1,4 +1,5 @@
 import { getUserFromAccessToken } from "@server/features/auth/application/auth-db-service"
+import type { AuthRole } from "@server/features/auth/domain/auth-role"
 import { getAccessTokenCookieName } from "@server/features/auth/presentation/auth-cookies"
 import { AppError } from "@server/shared/errors/app-error"
 import { HTTP_STATUS } from "@server/shared/errors/http-status"
@@ -27,4 +28,14 @@ export function requireAuthenticatedUser(cookieHeader: string) {
   }
 
   return user
+}
+
+export function requireUserRole(user: { role: AuthRole }, allowedRoles: AuthRole[]) {
+  if (!allowedRoles.includes(user.role)) {
+    throw new AppError({
+      code: "forbidden",
+      status: HTTP_STATUS.forbidden,
+      message: "insufficient permissions",
+    })
+  }
 }

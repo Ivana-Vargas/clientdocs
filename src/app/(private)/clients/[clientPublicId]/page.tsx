@@ -2,8 +2,15 @@ import Link from "next/link"
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 
+import { ClientDocumentsPanel } from "@app/features/documents/ui/client-documents-panel"
 import { ClientPaymentsPanel } from "@app/features/payments/ui/client-payments-panel"
+import { getUserFromAccessToken, getUserRoleByIdFromDb } from "@server/features/auth/application/auth-db-service"
+import { getAccessTokenCookieName } from "@server/features/auth/presentation/auth-cookies"
 import { getClientByPublicIdFromDb } from "@server/features/clients/application/clients-service"
+import {
+  listCurrentClientDocumentsFromDb,
+  listDocumentCategoriesFromDb,
+} from "@server/features/documents/application/documents-service"
 import { listPaymentsByClientPublicIdFromDb } from "@server/features/payments/application/payments-service"
 import { getDictionary } from "@shared/localization/dictionary"
 import { LOCALE_COOKIE_NAME, resolveLocale } from "@shared/localization/config"
@@ -28,7 +35,16 @@ export default async function ClientDetailPage({ params }: ClientDetailPageProps
   const cookieStore = await cookies()
   const locale = resolveLocale(cookieStore.get(LOCALE_COOKIE_NAME)?.value)
   const dictionary = getDictionary(locale)
+  const accessToken = cookieStore.get(getAccessTokenCookieName())?.value ?? ""
+  const tokenUser = getUserFromAccessToken(accessToken)
+  const userRole = tokenUser ? await getUserRoleByIdFromDb(tokenUser.id) : null
   const client = await getClientByPublicIdFromDb(clientPublicId)
+  const categories = await listDocumentCategoriesFromDb()
+  const documents = (await listCurrentClientDocumentsFromDb(clientPublicId)) ?? []
+  const documentCountByCategory = documents.reduce<Record<string, number>>((accumulator, document) => {
+    accumulator[document.categoryPublicId] = (accumulator[document.categoryPublicId] ?? 0) + 1
+    return accumulator
+  }, {})
   const paymentsResult = await listPaymentsByClientPublicIdFromDb(clientPublicId)
   const payments = paymentsResult?.payments ?? []
   const totalPaidInCents = paymentsResult?.totalPaidInCents ?? 0
@@ -95,11 +111,51 @@ export default async function ClientDetailPage({ params }: ClientDetailPageProps
           </dl>
         </article>
 
-        <article className="clients-detail-card">
-          <h2>{dictionary.clients.documentsViewTitle}</h2>
-          <p className="clients-detail-card__count">0 {dictionary.clients.documentsCountLabel}</p>
-          <p>{dictionary.clients.documentsViewDescription}</p>
-        </article>
+        <ClientDocumentsPanel
+          documentsPageHref={`/clients/${client.publicId}/documents`}
+          canManageCategories={userRole === "admin"}
+          initialCategories={categories}
+          initialCategorySummaries={categories.map((category) => ({
+            categoryPublicId: category.publicId,
+            documentsCount: documentCountByCategory[category.publicId] ?? 0,
+          }))}
+          documentsCount={documents.length}
+          labels={{
+            title: dictionary.clients.documentsViewTitle,
+            countLabelSingular: dictionary.clients.documentsCountSingular,
+            countLabelPlural: dictionary.clients.documentsCountPlural,
+            description: dictionary.clients.documentsViewDescription,
+            categoryActionsTitle: dictionary.documents.categoryActionsTitle,
+            categoryViewButton: dictionary.documents.categoryViewButton,
+            categoryNameLabel: dictionary.documents.categoryNameLabel,
+            categoryCreateButton: dictionary.documents.categoryCreateButton,
+            categoryCreateSuccessTitle: dictionary.documents.categoryCreateSuccessTitle,
+            categoryCreateSuccessDescription: dictionary.documents.categoryCreateSuccessDescription,
+            categoryCreateErrorTitle: dictionary.documents.categoryCreateErrorTitle,
+            categoryCreateErrorDescription: dictionary.documents.categoryCreateErrorDescription,
+            categoriesListTitle: dictionary.documents.categoriesListTitle,
+            categoriesListEmpty: dictionary.documents.categoriesListEmpty,
+            categoryDeleteButton: dictionary.documents.categoryDeleteButton,
+            categoryDeleteModalTitle: dictionary.documents.categoryDeleteModalTitle,
+            categoryDeleteModalDescription: dictionary.documents.categoryDeleteModalDescription,
+            categoryDeleteConfirmButton: dictionary.documents.categoryDeleteConfirmButton,
+            categoryDeleteCancelButton: dictionary.documents.categoryDeleteCancelButton,
+            categoryDeleteSuccessTitle: dictionary.documents.categoryDeleteSuccessTitle,
+            categoryDeleteSuccessDescription: dictionary.documents.categoryDeleteSuccessDescription,
+            categoryDeleteErrorTitle: dictionary.documents.categoryDeleteErrorTitle,
+            categoryDeleteErrorDescription: dictionary.documents.categoryDeleteErrorDescription,
+            categoryDeleteHasDocumentsTitle: dictionary.documents.categoryDeleteHasDocumentsTitle,
+            categoryDeleteHasDocumentsDescription: dictionary.documents.categoryDeleteHasDocumentsDescription,
+            categoriesStatusTitle: dictionary.documents.categoriesStatusTitle,
+            categoryPendingLabel: dictionary.documents.categoryPendingLabel,
+            categoryUploadedSingularLabel: dictionary.documents.categoryUploadedSingularLabel,
+            categoryUploadedPluralLabel: dictionary.documents.categoryUploadedPluralLabel,
+            emptyList: dictionary.documents.emptyList,
+            viewDocumentsButton: dictionary.documents.viewDocumentsButton,
+            closeLabel: dictionary.common.close,
+            saveLabel: dictionary.common.save,
+          }}
+        />
         <ClientPaymentsPanel
           locale={locale}
           clientPublicId={client.publicId}

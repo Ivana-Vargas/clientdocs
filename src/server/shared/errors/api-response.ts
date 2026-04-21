@@ -5,7 +5,7 @@ import type { ApiErrorDetail } from "@shared/types/api-response"
 import { AppError } from "./app-error"
 import { HTTP_STATUS } from "./http-status"
 
-export function successResponse<T>(data: T, status = HTTP_STATUS.ok) {
+export function successResponse<T>(data: T, status: number = HTTP_STATUS.ok) {
   return NextResponse.json(
     {
       ok: true,
