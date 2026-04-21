@@ -40,6 +40,7 @@ export default async function ClientDetailPage({ params }: ClientDetailPageProps
   const userRole = tokenUser ? await getUserRoleByIdFromDb(tokenUser.id) : null
   const client = await getClientByPublicIdFromDb(clientPublicId)
   const categories = await listDocumentCategoriesFromDb()
+  const typedCategories = categories as Array<{ publicId: string; name: string }>
   const documents = (await listCurrentClientDocumentsFromDb(clientPublicId)) ?? []
   const typedDocuments = documents as Array<{ categoryPublicId: string }>
   const documentCountByCategory: Record<string, number> = {}
@@ -117,8 +118,8 @@ export default async function ClientDetailPage({ params }: ClientDetailPageProps
         <ClientDocumentsPanel
           documentsPageHref={`/clients/${client.publicId}/documents`}
           canManageCategories={userRole === "admin"}
-          initialCategories={categories}
-          initialCategorySummaries={categories.map((category) => ({
+          initialCategories={typedCategories}
+          initialCategorySummaries={typedCategories.map((category) => ({
             categoryPublicId: category.publicId,
             documentsCount: documentCountByCategory[category.publicId] ?? 0,
           }))}

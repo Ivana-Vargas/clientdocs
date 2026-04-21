@@ -1,4 +1,5 @@
 import { prismaClient } from "@database/db-client/prisma-client"
+import type { Prisma } from "@prisma/client"
 
 import type { PaymentMethod } from "@server/features/payments/domain/payment-method"
 
@@ -93,7 +94,10 @@ export async function listPaymentsByClientPublicIdFromDb(clientPublicId: string)
   }
 
   const payments = client.payments.map(toPaymentRecord)
-  const totalPaidInCents = payments.reduce((total, payment) => total + payment.amountInCents, 0)
+  const totalPaidInCents = payments.reduce(
+    (total: number, payment: PaymentRecord) => total + payment.amountInCents,
+    0,
+  )
 
   return {
     clientPublicId: client.publicId,
@@ -107,7 +111,7 @@ export async function createPaymentForClientPublicIdInDb(
   input: CreatePaymentInput,
   createdByUserId: string,
 ) {
-  return prismaClient.$transaction(async (tx) => {
+  return prismaClient.$transaction(async (tx: Prisma.TransactionClient) => {
     const client = await tx.client.findUnique({
       where: { publicId: clientPublicId },
       select: {

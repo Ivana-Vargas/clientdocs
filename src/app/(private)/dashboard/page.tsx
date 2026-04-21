@@ -26,6 +26,7 @@ export default async function DashboardPage() {
       name: true,
     },
   })
+  const typedCategories = categories as Array<{ publicId: string; name: string }>
   const welcomeMessage =
     userRole === "manager" ? dictionary.dashboard.welcomeManager : dictionary.dashboard.welcomeAdmin
 
@@ -50,7 +51,7 @@ export default async function DashboardPage() {
         <DashboardDocumentsCard
           documentsCount={documentsCount}
           canManageCategories={userRole === "admin"}
-          initialCategories={categories.map((category) => ({
+          initialCategories={typedCategories.map((category) => ({
             publicId: category.publicId,
             name: category.name,
           }))}

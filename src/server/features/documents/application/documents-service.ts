@@ -1,5 +1,6 @@
 import crypto from "node:crypto"
 
+import type { Prisma } from "@prisma/client"
 import { prismaClient } from "@database/db-client/prisma-client"
 import { deleteStoredPdf, savePdfToConfiguredStorage } from "@server/shared/storage/document-storage"
 
@@ -296,7 +297,7 @@ export async function uploadClientDocumentFromDb(input: UploadClientDocumentInpu
 
   const checksumSha256 = crypto.createHash("sha256").update(input.contentBuffer).digest("hex")
 
-  const document = await prismaClient.$transaction(async (tx) => {
+  const document = await prismaClient.$transaction(async (tx: Prisma.TransactionClient) => {
     const current = await tx.clientDocument.findFirst({
       where: {
         clientId: client.id,
