@@ -39,3 +39,75 @@ export function requireUserRole(user: { role: AuthRole }, allowedRoles: AuthRole
     })
   }
 }
+
+function resolveSourceOrigin(request: Request) {
+  const originHeader = request.headers.get("origin")
+
+  if (originHeader) {
+    try {
+      return new URL(originHeader).origin
+    } catch {
+      throw new AppError({
+        code: "invalid_origin",
+        status: HTTP_STATUS.forbidden,
+        message: "invalid origin header",
+      })
+    }
+  }
+
+  const refererHeader = request.headers.get("referer")
+
+  if (refererHeader) {
+    try {
+      return new URL(refererHeader).origin
+    } catch {
+      throw new AppError({
+        code: "invalid_origin",
+        status: HTTP_STATUS.forbidden,
+        message: "invalid referer header",
+      })
+    }
+  }
+
+  return null
+}
+
+function resolveExpectedOrigin(request: Request) {
+  const hostHeader = request.headers.get("x-forwarded-host") ?? request.headers.get("host")
+
+  if (!hostHeader) {
+    return null
+  }
+
+  const protocolHeader = request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim()
+  const requestProtocol = new URL(request.url).protocol.replace(":", "")
+  const protocol = protocolHeader || requestProtocol || "https"
+
+  return `${protocol}://${hostHeader}`
+}
+
+export function requireTrustedOriginForMutation(request: Request) {
+  if (request.method === "GET" || request.method === "HEAD" || request.method === "OPTIONS") {
+    return
+  }
+
+  const sourceOrigin = resolveSourceOrigin(request)
+
+  if (!sourceOrigin) {
+    return
+  }
+
+  const expectedOrigin = resolveExpectedOrigin(request)
+
+  if (!expectedOrigin) {
+    return
+  }
+
+  if (sourceOrigin !== expectedOrigin) {
+    throw new AppError({
+      code: "invalid_origin",
+      status: HTTP_STATUS.forbidden,
+      message: "origin mismatch",
+    })
+  }
+}

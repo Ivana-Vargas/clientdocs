@@ -9,7 +9,12 @@ import { AppError } from "@server/shared/errors/app-error"
 import { errorResponse, successResponse } from "@server/shared/errors/api-response"
 import { HTTP_STATUS } from "@server/shared/errors/http-status"
 import { logHttpRequestResult } from "@server/shared/observability/http-console-logger"
-import { requireAuthenticatedUser, requireUserRole } from "@server/shared/security/access-guard"
+import {
+  requireAuthenticatedUser,
+  requireTrustedOriginForMutation,
+  requireUserRole,
+} from "@server/shared/security/access-guard"
+import { enforceRateLimit, getRequestClientFingerprint } from "@server/shared/security/rate-limit"
 
 type RouteContext = {
   params: Promise<{
@@ -23,7 +28,7 @@ const uploadPayloadSchema = z.object({
   categoryPublicId: z.string().trim().min(1),
 })
 
-function validateUploadFile(file: File) {
+function validateUploadFile(file: File, fileBuffer: Buffer) {
   const maxFileSize = resolveMaxUploadFileSizeBytes()
 
   if (file.type !== PDF_MIME_TYPE) {
@@ -39,6 +44,16 @@ function validateUploadFile(file: File) {
       code: "file_too_large",
       status: HTTP_STATUS.badRequest,
       message: "file is larger than allowed limit",
+    })
+  }
+
+  const hasPdfSignature = fileBuffer.subarray(0, 5).toString("ascii") === "%PDF-"
+
+  if (!hasPdfSignature) {
+    throw new AppError({
+      code: "invalid_file_content",
+      status: HTTP_STATUS.badRequest,
+      message: "file content is not a valid pdf",
     })
   }
 }
@@ -89,6 +104,13 @@ export async function POST(request: Request, context: RouteContext) {
   const path = new URL(request.url).pathname
 
   try {
+    requireTrustedOriginForMutation(request)
+    enforceRateLimit({
+      bucket: "documents_upload",
+      key: getRequestClientFingerprint(request),
+      maxRequests: 30,
+      windowMs: 60_000,
+    })
     const user = requireAuthenticatedUser(request.headers.get("cookie") ?? "")
     requireUserRole(user, ["admin", "manager"])
 
@@ -117,7 +139,8 @@ export async function POST(request: Request, context: RouteContext) {
       })
     }
 
-    validateUploadFile(fileField)
+    const fileBuffer = Buffer.from(await fileField.arrayBuffer())
+    validateUploadFile(fileField, fileBuffer)
 
     const uploadResult = await uploadClientDocumentFromDb({
       clientPublicId,
@@ -125,7 +148,7 @@ export async function POST(request: Request, context: RouteContext) {
       originalFileName: fileField.name,
       mimeType: fileField.type,
       fileSizeBytes: fileField.size,
-      contentBuffer: Buffer.from(await fileField.arrayBuffer()),
+      contentBuffer: fileBuffer,
       uploadedByUserId: user.id,
     })
 

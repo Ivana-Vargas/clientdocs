@@ -31,6 +31,10 @@ function getEnvCredentials(): EnvCredentials[] {
   const managerPassword = process.env.MANAGER_PASSWORD
 
   if (!adminEmail || !adminPassword || !managerEmail || !managerPassword) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("missing required production credentials env vars")
+    }
+
     return DEFAULT_CREDENTIALS
   }
 
@@ -60,10 +64,16 @@ export function getAuthUsers(): AuthUser[] {
 }
 
 export function getJwtConfig() {
+  const jwtSecret = process.env.JWT_SECRET
+
+  if (process.env.NODE_ENV === "production" && (!jwtSecret || jwtSecret.length < 32)) {
+    throw new Error("invalid JWT_SECRET for production")
+  }
+
   return {
     issuer: process.env.JWT_ISSUER ?? "clientdocs",
     audience: process.env.JWT_AUDIENCE ?? "clientdocs-web",
-    secret: process.env.JWT_SECRET ?? "replace-with-dev-secret",
+    secret: jwtSecret ?? "replace-with-dev-secret",
     accessTtl: process.env.JWT_ACCESS_TOKEN_TTL ?? "8h",
     refreshTtl: process.env.JWT_REFRESH_TOKEN_TTL ?? "14d",
   }

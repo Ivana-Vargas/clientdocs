@@ -8,6 +8,7 @@ import {
 } from "@server/shared/errors/api-response"
 import { HTTP_STATUS } from "@server/shared/errors/http-status"
 import { logHttpRequestResult } from "@server/shared/observability/http-console-logger"
+import { requireTrustedOriginForMutation } from "@server/shared/security/access-guard"
 import {
   LOCALE_COOKIE_NAME,
   resolveLocale,
@@ -23,6 +24,7 @@ export async function POST(request: Request) {
   const path = new URL(request.url).pathname
 
   try {
+    requireTrustedOriginForMutation(request)
     const json = await request.json().catch(() => null)
     const parseResult = localeSchema.safeParse(json)
 

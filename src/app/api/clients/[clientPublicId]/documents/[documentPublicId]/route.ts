@@ -3,7 +3,11 @@ import { AppError } from "@server/shared/errors/app-error"
 import { errorResponse, successResponse } from "@server/shared/errors/api-response"
 import { HTTP_STATUS } from "@server/shared/errors/http-status"
 import { logHttpRequestResult } from "@server/shared/observability/http-console-logger"
-import { requireAuthenticatedUser, requireUserRole } from "@server/shared/security/access-guard"
+import {
+  requireAuthenticatedUser,
+  requireTrustedOriginForMutation,
+  requireUserRole,
+} from "@server/shared/security/access-guard"
 
 type RouteContext = {
   params: Promise<{
@@ -17,6 +21,7 @@ export async function DELETE(request: Request, context: RouteContext) {
   const path = new URL(request.url).pathname
 
   try {
+    requireTrustedOriginForMutation(request)
     const user = requireAuthenticatedUser(request.headers.get("cookie") ?? "")
     requireUserRole(user, ["admin", "manager"])
 

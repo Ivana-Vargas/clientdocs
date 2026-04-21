@@ -13,9 +13,11 @@
     "db:generate": "prisma generate --schema src/database/schema/prisma.schema",
     "db:migrate": "prisma migrate dev --schema src/database/schema/prisma.schema",
     "db:push": "prisma db push --schema src/database/schema/prisma.schema",
+    "db:migrate:deploy": "prisma migrate deploy --schema src/database/schema/prisma.schema",
     "db:studio": "prisma studio --schema src/database/schema/prisma.schema",
     "db:seed": "tsx src/database/seeds/seed-users.ts",
-    "auth:sessions:cleanup": "tsx src/server/features/auth/infrastructure/cleanup-auth-sessions.ts"
+    "auth:sessions:cleanup": "tsx src/server/features/auth/infrastructure/cleanup-auth-sessions.ts",
+    "db:prepare:production": "tsx src/database/scripts/prepare-production-db.ts"
   },
   "keywords": [],
   "author": "",

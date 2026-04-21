@@ -14,6 +14,8 @@ import {
 import { HTTP_STATUS } from "@server/shared/errors/http-status"
 import { logHttpRequestResult } from "@server/shared/observability/http-console-logger"
 import { logger } from "@server/shared/observability/logger"
+import { requireTrustedOriginForMutation } from "@server/shared/security/access-guard"
+import { enforceRateLimit, getRequestClientFingerprint } from "@server/shared/security/rate-limit"
 
 const loginSchema = z.object({
   email: z.string().trim().min(1),
@@ -27,8 +29,16 @@ export async function POST(request: Request) {
   const userAgent = request.headers.get("user-agent") ?? undefined
 
   try {
+    requireTrustedOriginForMutation(request)
     const json = await request.json().catch(() => null)
     const parseResult = loginSchema.safeParse(json)
+
+    enforceRateLimit({
+      bucket: "auth_login",
+      key: getRequestClientFingerprint(request),
+      maxRequests: 20,
+      windowMs: 60_000,
+    })
 
     if (!parseResult.success) {
       throw new AppError({

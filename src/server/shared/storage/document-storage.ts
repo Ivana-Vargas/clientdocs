@@ -9,6 +9,25 @@ type SavePdfParams = {
   buffer: Buffer
 }
 
+function resolveSafeAbsolutePath(storageKey: string) {
+  const normalizedKey = storageKey.replace(/\\/g, "/").trim()
+
+  if (!normalizedKey || normalizedKey.startsWith("/") || normalizedKey.includes("..")) {
+    throw new Error("invalid storage key")
+  }
+
+  const storageRoot = buildStorageRoot()
+  const absolutePath = path.join(storageRoot, ...normalizedKey.split("/"))
+  const normalizedAbsolutePath = path.normalize(absolutePath)
+  const normalizedStorageRoot = path.normalize(storageRoot + path.sep)
+
+  if (!normalizedAbsolutePath.startsWith(normalizedStorageRoot)) {
+    throw new Error("unsafe storage path")
+  }
+
+  return normalizedAbsolutePath
+}
+
 function sanitizePathSegment(value: string) {
   return value
     .toLowerCase()
@@ -26,13 +45,12 @@ function ensureDirectoryExists(directoryPath: string) {
 }
 
 export function savePdfToLocalStorage(params: SavePdfParams) {
-  const extension = path.extname(params.originalFileName).toLowerCase() || ".pdf"
   const safeClient = sanitizePathSegment(params.clientPublicId)
   const safeCategory = sanitizePathSegment(params.categorySlug)
   const randomSuffix = crypto.randomBytes(6).toString("hex")
-  const fileName = `${Date.now()}-${randomSuffix}${extension}`
+  const fileName = `${Date.now()}-${randomSuffix}.pdf`
   const relativeStorageKey = path.posix.join(safeClient, safeCategory, fileName)
-  const absolutePath = path.join(buildStorageRoot(), ...relativeStorageKey.split("/"))
+  const absolutePath = resolveSafeAbsolutePath(relativeStorageKey)
 
   ensureDirectoryExists(path.dirname(absolutePath))
   fs.writeFileSync(absolutePath, params.buffer)
@@ -41,8 +59,7 @@ export function savePdfToLocalStorage(params: SavePdfParams) {
 }
 
 export function readLocalStoredPdf(storageKey: string) {
-  const normalizedKey = storageKey.replace(/\\/g, "/")
-  const absolutePath = path.join(buildStorageRoot(), ...normalizedKey.split("/"))
+  const absolutePath = resolveSafeAbsolutePath(storageKey)
 
   return {
     absolutePath,
@@ -52,8 +69,7 @@ export function readLocalStoredPdf(storageKey: string) {
 }
 
 export function deleteLocalStoredPdf(storageKey: string) {
-  const normalizedKey = storageKey.replace(/\\/g, "/")
-  const absolutePath = path.join(buildStorageRoot(), ...normalizedKey.split("/"))
+  const absolutePath = resolveSafeAbsolutePath(storageKey)
 
   if (fs.existsSync(absolutePath)) {
     fs.unlinkSync(absolutePath)

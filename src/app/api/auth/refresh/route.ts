@@ -9,6 +9,8 @@ import { AppError } from "@server/shared/errors/app-error"
 import { errorResponse, successResponse } from "@server/shared/errors/api-response"
 import { HTTP_STATUS } from "@server/shared/errors/http-status"
 import { logHttpRequestResult } from "@server/shared/observability/http-console-logger"
+import { requireTrustedOriginForMutation } from "@server/shared/security/access-guard"
+import { enforceRateLimit, getRequestClientFingerprint } from "@server/shared/security/rate-limit"
 
 export async function POST(request: Request) {
   const startedAt = Date.now()
@@ -17,6 +19,13 @@ export async function POST(request: Request) {
   const userAgent = request.headers.get("user-agent") ?? undefined
 
   try {
+    requireTrustedOriginForMutation(request)
+    enforceRateLimit({
+      bucket: "auth_refresh",
+      key: getRequestClientFingerprint(request),
+      maxRequests: 40,
+      windowMs: 60_000,
+    })
     const cookieHeader = request.headers.get("cookie") ?? ""
     const refreshToken = getCookieValue(cookieHeader, getRefreshTokenCookieName())
 

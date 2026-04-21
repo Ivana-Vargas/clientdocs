@@ -13,7 +13,7 @@ import {
 } from "@server/shared/errors/api-response"
 import { HTTP_STATUS } from "@server/shared/errors/http-status"
 import { logHttpRequestResult } from "@server/shared/observability/http-console-logger"
-import { requireAuthenticatedUser } from "@server/shared/security/access-guard"
+import { requireAuthenticatedUser, requireTrustedOriginForMutation } from "@server/shared/security/access-guard"
 import { parseDecimalAmountToCents } from "@server/shared/utils/amount-in-cents"
 
 type RouteContext = {
@@ -106,6 +106,7 @@ export async function POST(request: Request, context: RouteContext) {
   const path = new URL(request.url).pathname
 
   try {
+    requireTrustedOriginForMutation(request)
     const user = requireAuthenticatedUser(request.headers.get("cookie") ?? "")
     const { clientPublicId } = await context.params
     const json = await request.json().catch(() => null)

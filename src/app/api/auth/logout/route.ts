@@ -7,6 +7,7 @@ import {
 import { errorResponse, successResponse } from "@server/shared/errors/api-response"
 import { HTTP_STATUS } from "@server/shared/errors/http-status"
 import { logHttpRequestResult } from "@server/shared/observability/http-console-logger"
+import { requireTrustedOriginForMutation } from "@server/shared/security/access-guard"
 import { getCookieValue } from "@server/shared/security/cookie-utils"
 
 export async function POST(request: Request) {
@@ -14,6 +15,7 @@ export async function POST(request: Request) {
   const path = new URL(request.url).pathname
 
   try {
+    requireTrustedOriginForMutation(request)
     const cookieHeader = request.headers.get("cookie") ?? ""
     const refreshToken = getCookieValue(cookieHeader, getRefreshTokenCookieName())
 
